@@ -1,0 +1,6 @@
+[submodule "ShopApiAuthService"]
+	path = ShopApiAuthService
+	url = https://github.com/Muradxanyann/ShopApi_AuthService
+[submodule "ShopApi"]
+	path = ShopApi
+	url = https://github.com/Muradxanyann/ShopApi
