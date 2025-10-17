@@ -9,7 +9,7 @@ This repository contains the microservices for the shop project:
 
 ## 🧠 Project Architecture
 ```
-ShopApi
+ShopApi && Auth Api(structure the same)
 │
 ├── 📂 Domain
 │   ├── OrderEntity.cs
