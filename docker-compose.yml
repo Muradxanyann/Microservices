@@ -1,47 +1,62 @@
-# Указываем версию синтаксиса Docker Compose. 3.8 - стабильная и современная.
-version: '3.8'
-
-# Секция, где мы определяем все наши сервисы (контейнеры).
 services:
-  # 1. Сервис для ShopApi
+  # ----------------------------------------------------
+  # 🆕 1. REDIS CACHE SERVICE
+  # ----------------------------------------------------
+  redis-cache:
+    image: redis:7-alpine
+    container_name: redis-cache
+    restart: always
+    volumes:
+      - redis-data:/data 
+    networks:
+      - microservices-net
+  
+
+  api-gateway:
+    container_name: api-gateway
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - shop-api
+      - shop-auth-service
+    networks:
+      - microservices-net
+
   shop-api:
     container_name: shop-api
     build:
-      context: ./ShopApi # Указываем, где находятся исходники для сборки (корневая папка сервиса).
-      dockerfile: Presentation/Dockerfile # Указываем путь к Dockerfile относительно context.
-    ports:
-      # ИЗМЕНЕНИЕ: Запросы с порта 5000 твоего компьютера (хоста)
-      # теперь правильно перенаправляются на порт 8080 внутри контейнера.
-      - "5000:8080"
+      context: ./ShopApi
+      dockerfile: Presentation/Dockerfile
     environment:
-      # ДОБАВЛЕНО: Явно указываем серверу Kestrel слушать именно порт 8080 внутри контейнера.
-      # Это лучшая практика для избежания путаницы с портами.
       - ASPNETCORE_URLS=http://+:8080
-      # Переопределяем строку подключения, чтобы использовать имя сервиса базы данных.
       - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Database=Shop;Username=postgres;Password=1111
+      - "ConnectionStrings:Redis=redis-cache:6379"
     depends_on:
-      - shop-db # Указываем, что этот сервис зависит от 'shop-db'.
+      - shop-db
+      - redis-cache 
+    networks:
+      - microservices-net
 
-  # 2. Сервис для ShopApiAuthService
   shop-auth-service:
     container_name: shop-auth-service
     build:
       context: ./ShopApiAuthService
       dockerfile: Presentation/Dockerfile
-    ports:
-      # ИЗМЕНЕНИЕ: Запросы с порта 5001 твоего компьютера
-      # перенаправляются на порт 8080 внутри этого контейнера.
-      - "5001:8080"
     environment:
-      # ДОБАВЛЕНО: Этот сервис тоже должен слушать порт 8080 внутри своего контейнера.
       - ASPNETCORE_URLS=http://+:8080
-      # Аналогично первому сервису, указываем имя его контейнера с базой данных.
+      - "ConnectionStrings:Redis=redis-cache:6379" 
       - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Database=ShopAuthService;Username=postgres;Password=1111
     depends_on:
-      shop-auth-db:
-        condition: service_healthy
+      - redis-cache
+      - shop-auth-db
+    networks:
+      - microservices-net
 
-  # 3. Сервис базы данных для ShopApi
   shop-db:
     image: postgres:16-alpine
     container_name: shop-db
@@ -51,8 +66,9 @@ services:
       - POSTGRES_DB=Shop
     volumes:
       - shop-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
 
-  # 4. Сервис базы данных для ShopApiAuthService
   shop-auth-db:
     image: postgres:16-alpine
     container_name: shop-auth-db
@@ -67,9 +83,15 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - microservices-net
 
-# Секция для определения именованных томов (volumes) для сохранения данных.
+networks:
+  microservices-net:
+    driver: bridge
+
 volumes:
   shop-db-data:
   shop-auth-db-data:
+  redis-data: {}
 
