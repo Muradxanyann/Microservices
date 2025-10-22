@@ -1,7 +1,17 @@
 services:
-  # ----------------------------------------------------
-  # 🆕 1. REDIS CACHE SERVICE
-  # ----------------------------------------------------
+  message-broker:
+    image: rabbitmq:3.13-management-alpine 
+    container_name: message-broker
+    restart: always
+    ports:
+      - "5672:5672"   # Port for clients
+      - "15672:15672" # Port for UI
+    networks:
+      - microservices-net
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    
   redis-cache:
     image: redis:7-alpine
     container_name: redis-cache
@@ -36,9 +46,11 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Database=Shop;Username=postgres;Password=1111
       - "ConnectionStrings:Redis=redis-cache:6379"
+      - "MessageBroker:ConnectionString=amqp://guest:guest@message-broker:5672"
     depends_on:
       - shop-db
       - redis-cache 
+      - message-broker
     networks:
       - microservices-net
 
@@ -50,10 +62,12 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - "ConnectionStrings:Redis=redis-cache:6379" 
+      - "MessageBroker:ConnectionString=amqp://guest:guest@message-broker:5672"
       - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Database=ShopAuthService;Username=postgres;Password=1111
     depends_on:
       - redis-cache
       - shop-auth-db
+      - message-broker
     networks:
       - microservices-net
 
